@@ -1,0 +1,521 @@
+{
+  "name": "Receipt Processing Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/airtable-receipt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-2512, 320],
+      "id": "webhook-trigger",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-record-id",
+              "leftValue": "={{ $json.body.recordId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-2288, 320],
+      "id": "validate-webhook",
+      "name": "Valid Webhook Data?"
+    },
+    {
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_TABLE_ID",
+          "mode": "id"
+        },
+        "id": "={{ $json.body.recordId }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [-2064, 240],
+      "id": "get-airtable-record",
+      "name": "Get Airtable record",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable Personal Access Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "record-exists",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-1840, 240],
+      "id": "check-record-exists",
+      "name": "Airtable Record Exists?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.Receipt[0].url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [-1616, 176],
+      "id": "download-attachment",
+      "name": "Get Airtable attachment"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "download-success",
+              "leftValue": "={{ $binary.data }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-1392, 176],
+      "id": "check-download",
+      "name": "Check Download Success"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-jpeg",
+              "leftValue": "={{ $json.Receipt[0].type }}",
+              "rightValue": "image/jpeg",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "is-png",
+              "leftValue": "={{ $json.Receipt[0].type }}",
+              "rightValue": "image/png",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-1168, 0],
+      "id": "check-image-type",
+      "name": "Is Image (jpg/png)?"
+    },
+    {
+      "parameters": {
+        "outputFormat": "pdf"
+      },
+      "type": "@cloudconvert/n8n-nodes-cloudconvert.cloudConvert",
+      "typeVersion": 1,
+      "position": [-944, -64],
+      "id": "convert-to-pdf",
+      "name": "CloudConvert",
+      "credentials": {
+        "cloudConvertOAuth2Api": {
+          "id": "YOUR_CLOUDCONVERT_CREDENTIAL_ID",
+          "name": "CloudConvert account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "conversion-success",
+              "leftValue": "={{ $binary.data }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-720, -64],
+      "id": "check-conversion",
+      "name": "Check CloudConvert Success"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "path": "=/Receipts/{{ $('Get Airtable record').item.json['Expense Name'] }} {{ DateTime.fromISO($('Get Airtable record').item.json.Date).toFormat('yyyyMMdd') }}.pdf",
+        "binaryData": true
+      },
+      "type": "n8n-nodes-base.dropbox",
+      "typeVersion": 1,
+      "position": [-496, 0],
+      "id": "upload-to-dropbox",
+      "name": "Add file to Dropbox",
+      "credentials": {
+        "dropboxOAuth2Api": {
+          "id": "YOUR_DROPBOX_CREDENTIAL_ID",
+          "name": "Dropbox account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "upload-success",
+              "leftValue": "={{ $json.size }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-272, 0],
+      "id": "check-upload",
+      "name": "If Dropbox upload successful"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_TABLE_ID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Submitted": true,
+            "Synced to Dropbox": true,
+            "id": "={{ $('Get Airtable record').item.json.id }}"
+          },
+          "matchingColumns": ["id"]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [-48, -96],
+      "id": "update-record",
+      "name": "Update Airtable record",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL_ID",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "update-success",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-48, 96],
+      "id": "check-update",
+      "name": "Check Update Success"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-48, -96],
+      "id": "workflow-complete",
+      "name": "Workflow Complete"
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_EMAIL@example.com",
+        "subject": "[n8n] Invalid Webhook Data",
+        "message": "=Received webhook without valid recordId.<br><br>Webhook body: {{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [-2288, 512],
+      "id": "notify-invalid-webhook",
+      "name": "Send Error Notification",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_EMAIL@example.com",
+        "subject": "[n8n] Receipt Download Failed",
+        "message": "=Failed to download receipt attachment for record: {{ $('Get Airtable record').item.json.id }}<br><br>Expense Name: {{ $('Get Airtable record').item.json['Expense Name'] }}<br>Date: {{ $('Get Airtable record').item.json.Date }}<br><br>Please check the Airtable record and retry manually.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [-1168, 192],
+      "id": "notify-download-failed",
+      "name": "Notify Download Failed",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_EMAIL@example.com",
+        "subject": "[n8n] Image Conversion Failed",
+        "message": "=Failed to convert image to PDF for record: {{ $('Get Airtable record').item.json.id }}<br><br>Expense Name: {{ $('Get Airtable record').item.json['Expense Name'] }}<br>Date: {{ $('Get Airtable record').item.json.Date }}<br><br>CloudConvert service may be unavailable. Please retry later.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [-496, 224],
+      "id": "notify-conversion-failed",
+      "name": "Notify CloudConvert Failed",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_EMAIL@example.com",
+        "subject": "[n8n] Dropbox Upload Failed",
+        "message": "=Failed to upload receipt to Dropbox for record: {{ $('Get Airtable record').item.json.id }}<br><br>Expense Name: {{ $('Get Airtable record').item.json['Expense Name'] }}<br>Date: {{ $('Get Airtable record').item.json.Date }}<br><br>Dropbox upload returned empty or failed. Please check Dropbox connection and retry.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [-48, 288],
+      "id": "notify-upload-failed",
+      "name": "Notify Dropbox Failed",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_EMAIL@example.com",
+        "subject": "[n8n] Airtable Update Failed",
+        "message": "=Failed to update Airtable record after successful Dropbox upload: {{ $('Get Airtable record').item.json.id }}<br><br>Expense Name: {{ $('Get Airtable record').item.json['Expense Name'] }}<br>Date: {{ $('Get Airtable record').item.json.Date }}<br><br>File was uploaded to Dropbox successfully, but the record status could not be updated. Please update manually in Airtable.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [176, 192],
+      "id": "notify-update-failed",
+      "name": "Notify Update Failed",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Valid Webhook Data?", "type": "main", "index": 0}]]
+    },
+    "Valid Webhook Data?": {
+      "main": [
+        [{"node": "Get Airtable record", "type": "main", "index": 0}],
+        [{"node": "Send Error Notification", "type": "main", "index": 0}]
+      ]
+    },
+    "Get Airtable record": {
+      "main": [[{"node": "Airtable Record Exists?", "type": "main", "index": 0}]]
+    },
+    "Airtable Record Exists?": {
+      "main": [
+        [{"node": "Get Airtable attachment", "type": "main", "index": 0}],
+        [{"node": "Send Error Notification", "type": "main", "index": 0}]
+      ]
+    },
+    "Get Airtable attachment": {
+      "main": [[{"node": "Check Download Success", "type": "main", "index": 0}]]
+    },
+    "Check Download Success": {
+      "main": [
+        [{"node": "Is Image (jpg/png)?", "type": "main", "index": 0}],
+        [{"node": "Notify Download Failed", "type": "main", "index": 0}]
+      ]
+    },
+    "Is Image (jpg/png)?": {
+      "main": [
+        [{"node": "CloudConvert", "type": "main", "index": 0}],
+        [{"node": "Add file to Dropbox", "type": "main", "index": 0}]
+      ]
+    },
+    "CloudConvert": {
+      "main": [[{"node": "Check CloudConvert Success", "type": "main", "index": 0}]]
+    },
+    "Check CloudConvert Success": {
+      "main": [
+        [{"node": "Add file to Dropbox", "type": "main", "index": 0}],
+        [{"node": "Notify CloudConvert Failed", "type": "main", "index": 0}]
+      ]
+    },
+    "Add file to Dropbox": {
+      "main": [[{"node": "If Dropbox upload successful", "type": "main", "index": 0}]]
+    },
+    "If Dropbox upload successful": {
+      "main": [
+        [{"node": "Update Airtable record", "type": "main", "index": 0}],
+        [{"node": "Notify Dropbox Failed", "type": "main", "index": 0}]
+      ]
+    },
+    "Update Airtable record": {
+      "main": [[{"node": "Check Update Success", "type": "main", "index": 0}]]
+    },
+    "Check Update Success": {
+      "main": [
+        [{"node": "Workflow Complete", "type": "main", "index": 0}],
+        [{"node": "Notify Update Failed", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
